@@ -1,0 +1,94 @@
+{
+    "appKeys": {
+        "KEY_ALTACC": 3,
+        "KEY_ALTITUDE": 2,
+        "KEY_LATITUDE": 0,
+        "KEY_LONGITUDE": 1,
+        "KEY_RISE_0": 6,
+        "KEY_RISE_1": 7,
+        "KEY_RISE_2": 8,
+        "KEY_RISE_3": 9,
+        "KEY_RISE_4": 10,
+        "KEY_RISE_5": 11,
+        "KEY_RISE_6": 12,
+        "KEY_USEOLDDATA": 4,
+        "KEY_UTCh": 5
+    },
+    "capabilities": [
+        "location"
+    ],
+    "companyName": "Kurt Lawrence",
+    "longName": "Astronomy Face",
+    "projectType": "native",
+    "resources": {
+        "media": [
+            {
+                "file": "images/NewMoonSH_icon.png",
+                "name": "NewMoonSH_icon",
+                "type": "png"
+            },
+            {
+                "file": "images/NewMoonNH_icon.png",
+                "menuIcon": true,
+                "name": "NewMoonNH_icon",
+                "type": "png"
+            },
+            {
+                "file": "images/Battery_icon.png",
+                "name": "Battery_icon",
+                "type": "png"
+            },
+            {
+                "file": "images/FullMoon_icon.png",
+                "name": "FullMoon_icon",
+                "type": "png"
+            },
+            {
+                "file": "images/SunRiseSet_icon.png",
+                "name": "SunRiseSet_icon",
+                "type": "png"
+            },
+            {
+                "file": "images/MoonLastNS_icon.png",
+                "name": "MoonQtrL_icon",
+                "type": "png"
+            },
+            {
+                "file": "images/MoonGibbousR_icon.png",
+                "name": "MoonGibbousR_icon",
+                "type": "png"
+            },
+            {
+                "file": "images/MoonGibbousL_icon.png",
+                "name": "MoonGibbousL_icon",
+                "type": "png"
+            },
+            {
+                "file": "images/MoonFirstNS_icon.png",
+                "name": "MoonQtrR_icon",
+                "type": "png"
+            },
+            {
+                "file": "images/MoonCrescentR_icon.png",
+                "name": "MoonCrescentR_icon",
+                "type": "png"
+            },
+            {
+                "file": "images/MoonCrescentL_icon.png",
+                "name": "MoonCrescentL_icon",
+                "type": "png"
+            }
+        ]
+    },
+    "sdkVersion": "3",
+    "shortName": "Astronomy",
+    "targetPlatforms": [
+        "aplite",
+        "basalt"
+    ],
+    "uuid": "6d4b7965-4085-41a7-9b11-fff84e389997",
+    "versionLabel": "1.0",
+    "watchapp": {
+        "watchface": true
+    }
+}
