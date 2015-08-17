@@ -291,8 +291,9 @@ static void update_Astronomy() {
   long lastDateCode = persist_read_int(LDATE_STORED);
   int daysWithoutUpdate = calc_d_JDate(cCodeDate) - calc_d_JDate(lastDateCode);
   
-  if (daysWithoutUpdate != 0) {
+  if (daysWithoutUpdate != 0 || lastDateCode == 0) {
     //See if we can get updated GPS coords if it's been longer than a day without update. This will run in the initlisation as well, only if more than one day without updating!
+		//v1.1 - Had to make sure that if no data is in the LDATE_STORED then force an update (for when the app is first installed...)
     update_GPS();
     //Since this may have changed, check the last update date
     lastDateCode = persist_read_int(LDATE_STORED);
@@ -343,13 +344,14 @@ static void update_Astronomy() {
   //Fifth; Display the data!------------------------------------------------------------------------------------------------------
   //Note: Moonphases are flipped for hemispheres -> http://resources.woodlands-junior.kent.sch.uk/time/moon/hemispheres.html
   //Create a test bed for...testing
-  /*sunRiseTime = 2207;
-  sunSetTime = 2307;
-  latitude = -27.07;
-  longitude = -120.04;
-  riseInt = 2207;
+  /*sunRiseTime = 617;
+  sunSetTime = 1727;
+  latitude = -27.47;
+  longitude = 153.03;
+  riseInt = 732;
   lastUpdateTime = 1808;
-  moonPhaseNum = 4;*/
+	lastDateCode = 20150817;
+  moonPhaseNum = 1;*/
   
   //Create the buffers
   static char moonRiseBuffer[16] = "No rise/set";

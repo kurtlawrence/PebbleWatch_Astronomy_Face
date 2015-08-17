@@ -83,11 +83,10 @@
     "sdkVersion": "3",
     "shortName": "Astronomy",
     "targetPlatforms": [
-        "aplite",
-        "basalt"
+        "aplite"
     ],
     "uuid": "6d4b7965-4085-41a7-9b11-fff84e389997",
-    "versionLabel": "1.0",
+    "versionLabel": "1.1",
     "watchapp": {
         "watchface": true
     }
