@@ -1,10 +1,6 @@
 #include <batteryModule.h>    // Battery module requires time module functions
 #include <moonModule.h>        // Moon module requires time module functions
 // This module adds functionality to display the time and date (one call to TickTimerService)
-static TextLayer *timeDisplayLayer;
-static TextLayer *dateDisplayLayer;
-static TextLayer *dateDisplayLayer2;
-
 static void update_time() {
   // Get a tm structure
   time_t temp = time(NULL);
@@ -27,9 +23,9 @@ static void update_time() {
   strftime(buffer3, sizeof("Day DDD - Week WW"), "Day %j - Week %W", tick_time);
   
   // Display this time on the TextLayer
-  text_layer_set_text(timeDisplayLayer, buffer);
-  text_layer_set_text(dateDisplayLayer, buffer2);
-  text_layer_set_text(dateDisplayLayer2, buffer3);
+  text_layer_set_text(s_time_layer, buffer);
+  text_layer_set_text(s_date_layer1, buffer2);
+  text_layer_set_text(s_date_layer2, buffer3);
 }
 
 static void time_tick_handler(struct tm *tick_time, TimeUnits units_changed) {
@@ -37,25 +33,21 @@ static void time_tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   
   
   int hourNum = tick_time->tm_hour;
+	int minNum = tick_time->tm_min;
   hourNum = hourNum + 2;    //Adj hour so the mod works nicely
   
-  if (hourNum % 4 == 4) {
+  if (hourNum % 4 == 0 && minNum == 0) {
     // Update every four hours, starting at midnight - adjustment + 4
     update_GPS();
     update_battery();
   }
-  if (hourNum % 6 == 4) {
+  if (hourNum % 6 == 0 && minNum == 0) {
     // Update every six hours, starting at mignight - adjustment + 6
     update_Astronomy();
   }
 }
 
-static void timeModule_init(TextLayer *temp, TextLayer *temp2, TextLayer *temp3) {
-  // Conform the display layer
-  timeDisplayLayer = temp;
-  dateDisplayLayer = temp2;
-  dateDisplayLayer2 = temp3;
-  
+static void timeModule_init() { 
   // Run an update on the time to get the latest time
   update_time();
   

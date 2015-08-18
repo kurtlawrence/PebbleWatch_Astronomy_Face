@@ -28,12 +28,6 @@ enum {
   LAST_STORED = 10,
   LDATE_STORED = 11
 };    //Keys for local persistent storage
-static TextLayer *moonRiseDispLayer;
-static TextLayer *moonPhaseDispLayer;
-static TextLayer *sunRiseDispLayer;
-static TextLayer *sunSetDispLayer;
-static BitmapLayer *moonIconDispLayer;
-static GBitmap *moonIcon_bitmap;
 static float latitude;
 static float longitude;
 static float UToffset;
@@ -354,7 +348,7 @@ static void update_Astronomy() {
   moonPhaseNum = 1;*/
   
   //Create the buffers
-  static char moonRiseBuffer[16] = "No rise/set";
+  static char moonRiseBuffer[16] = "No rise";
   static char moonPhaseBuffer[16] = "##########";
   static char sunRiseBuffer[16] = "##########";
   static char sunSetBuffer[16] = "##########";
@@ -364,7 +358,7 @@ static void update_Astronomy() {
   //Fill the buffers
   if(riseInt == 4000) {
     //Flags an error
-    snprintf(moonRiseBuffer, sizeof(moonRiseBuffer), "No rise/set");
+    snprintf(moonRiseBuffer, sizeof(moonRiseBuffer), "No rise");
   } else {
     snprintf(moonRiseBuffer, sizeof(moonRiseBuffer), "%d:%d%d rise", returnHour(riseInt), returnMinTens(riseInt), returnMinOnes(riseInt));
   }
@@ -372,66 +366,66 @@ static void update_Astronomy() {
     case 0:
       snprintf(moonPhaseBuffer, sizeof(moonRiseBuffer), "New moon");
       if (latitude < 0) {
-        moonIcon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_NewMoonSH_icon);
+        s_moonIcon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_NewMoonSH_icon);
       } else {
-        moonIcon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_NewMoonNH_icon);
+        s_moonIcon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_NewMoonNH_icon);
       }
       break;
     case 1:
       snprintf(moonPhaseBuffer, sizeof(moonRiseBuffer), "Waxing");
       if (latitude < 0) {
-        moonIcon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_MoonCrescentL_icon);
+        s_moonIcon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_MoonCrescentL_icon);
       } else {
-        moonIcon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_MoonCrescentR_icon);
+        s_moonIcon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_MoonCrescentR_icon);
       }
       break;
     case 2:
       snprintf(moonPhaseBuffer, sizeof(moonRiseBuffer), "First qtr");
       if (latitude < 0) {
-        moonIcon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_MoonQtrL_icon);
+        s_moonIcon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_MoonQtrL_icon);
       } else {
-        moonIcon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_MoonQtrR_icon);
+        s_moonIcon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_MoonQtrR_icon);
       }
       break;
     case 3:
       snprintf(moonPhaseBuffer, sizeof(moonRiseBuffer), "Waxing");
       if (latitude < 0) {
-        moonIcon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_MoonGibbousL_icon);
+        s_moonIcon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_MoonGibbousL_icon);
       } else {
-        moonIcon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_MoonGibbousR_icon);
+        s_moonIcon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_MoonGibbousR_icon);
       }
       break;
     case 4:
       snprintf(moonPhaseBuffer, sizeof(moonRiseBuffer), "Full moon");
-      moonIcon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_FullMoon_icon);
+      s_moonIcon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_FullMoon_icon);
       break;
     case 5:
       snprintf(moonPhaseBuffer, sizeof(moonRiseBuffer), "Waning");
       if (latitude < 0) {
-        moonIcon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_MoonGibbousR_icon);
+        s_moonIcon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_MoonGibbousR_icon);
       } else {
-        moonIcon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_MoonGibbousL_icon);
+        s_moonIcon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_MoonGibbousL_icon);
       }
       break;
     case 6:
       snprintf(moonPhaseBuffer, sizeof(moonRiseBuffer), "Last qtr");
       if (latitude < 0) {
-        moonIcon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_MoonQtrR_icon);
+        s_moonIcon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_MoonQtrR_icon);
       } else {
-        moonIcon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_MoonQtrL_icon);
+        s_moonIcon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_MoonQtrL_icon);
       }
       break;
     case 7:
       snprintf(moonPhaseBuffer, sizeof(moonRiseBuffer), "Waning");
       if (latitude < 0) {
-        moonIcon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_MoonCrescentR_icon);
+        s_moonIcon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_MoonCrescentR_icon);
       } else {
-        moonIcon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_MoonCrescentL_icon);
+        s_moonIcon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_MoonCrescentL_icon);
       }
       break;
     default:
       snprintf(moonPhaseBuffer, sizeof(moonRiseBuffer), "not found");
-      moonIcon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_NewMoonSH_icon);
+      s_moonIcon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_NewMoonSH_icon);
       break;
   }
   snprintf(sunRiseBuffer, sizeof(sunRiseBuffer), "%d:%d%d", returnHour(sunRiseTime), returnMinTens(sunRiseTime), returnMinOnes(sunRiseTime));
@@ -439,15 +433,19 @@ static void update_Astronomy() {
   int yearVar = lastDateCode / 10000;
   int monthVar = (lastDateCode % 10000) / 100;
   int dayVar = lastDateCode % 100;
-  snprintf(lastUpdateBuffer, sizeof(lastUpdateBuffer), "%d-%d-%d %d:%d%d UTC%d", dayVar, monthVar, yearVar, returnHour(lastUpdateTime), returnMinTens(lastUpdateTime), returnMinOnes(lastUpdateTime), (int)UToffset);
-  snprintf(GPScoordsBuffer, sizeof(GPScoordsBuffer), "Lat %d.%d%d, Long %d.%d%d", (int)latitude, returnMinTens(Abs(latitude) * 100), returnMinOnes(Abs(latitude) * 100), (int)longitude, returnMinTens(Abs(longitude) * 100), returnMinOnes(Abs(longitude) * 100));
-  
+	
+	if (lastDateCode != 0){
+		//Update the location data
+  	snprintf(lastUpdateBuffer, sizeof(lastUpdateBuffer), "%d-%d-%d %d:%d%d UTC%d", dayVar, monthVar, yearVar, returnHour(lastUpdateTime), returnMinTens(lastUpdateTime), returnMinOnes(lastUpdateTime), (int)UToffset);
+  	snprintf(GPScoordsBuffer, sizeof(GPScoordsBuffer), "Lat %d.%d%d, Long %d.%d%d", (int)latitude, returnMinTens(Abs(latitude) * 100), returnMinOnes(Abs(latitude) * 100), (int)longitude, returnMinTens(Abs(longitude) * 100), returnMinOnes(Abs(longitude) * 100));
+	}
+		
   //Display the values
-  text_layer_set_text(moonRiseDispLayer, moonRiseBuffer);
-  text_layer_set_text(moonPhaseDispLayer, moonPhaseBuffer);
-  bitmap_layer_set_bitmap(moonIconDispLayer, moonIcon_bitmap);     //Display the moon phase icon
-  text_layer_set_text(sunRiseDispLayer, sunRiseBuffer);
-  text_layer_set_text(sunSetDispLayer, sunSetBuffer);
+  text_layer_set_text(s_moonRise_layer, moonRiseBuffer);
+  text_layer_set_text(s_moonPhase_layer, moonPhaseBuffer);
+  bitmap_layer_set_bitmap(s_moonIcon_layer, s_moonIcon_bitmap);     //Display the moon phase icon
+  text_layer_set_text(s_sunRise_layer, sunRiseBuffer);
+  text_layer_set_text(s_sunSet_layer, sunSetBuffer);
   text_layer_set_text(s_UTC_layer, lastUpdateBuffer);
   text_layer_set_text(s_Coords_layer, GPScoordsBuffer);
 }
@@ -569,17 +567,10 @@ static void outbox_sent_callback(DictionaryIterator *iterator, void *context) {
 
 
 
-static void moonModule_init(TextLayer *temp, TextLayer *temp2, TextLayer *temp3, TextLayer *temp4, BitmapLayer *temp5) {
+static void moonModule_init() {
   //Set dbug mode
   localDebugDisp = 2;
   //dispVal(localDebugDisp, "Debug mode:");
-  
-  // Conform the display layers
-  moonRiseDispLayer = temp;
-  moonPhaseDispLayer = temp2;
-  sunRiseDispLayer = temp3;
-  sunSetDispLayer = temp4;
-  moonIconDispLayer = temp5;      //The bitmap layer that the moon icon display layer is done on.
   
   latitude = (float)persist_read_int(LAT_STORED) / 100;
   longitude = (float)persist_read_int(LNG_STORED) / 100;
@@ -606,5 +597,4 @@ static void moonModule_init(TextLayer *temp, TextLayer *temp2, TextLayer *temp3,
 
 static void moonModule_deinit() {
   app_message_deregister_callbacks();    //Destroy the callbacks for clean up
-  gbitmap_destroy(moonIcon_bitmap);      //Destroy the bitmap filled with moon icon
 }
