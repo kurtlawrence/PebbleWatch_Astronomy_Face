@@ -1,11 +1,9 @@
-function sendBackToPebble(lat, long, hasData, alt, altAcc, offsetHrs, riseTimes) {
+function sendBackToPebble(lat, long, hasData, offsetHrs, riseTimes) {
   // Assemble dictionary using our keys, Minutes need to be flipped in sign
   var dictionary = {
     'KEY_LATITUDE': lat,
     'KEY_LONGITUDE': long,
     'KEY_USEOLDDATA': hasData,
-    'KEY_ALTITUDE': alt,
-    'KEY_ALTACC': altAcc,
     'KEY_UTCh': offsetHrs,
     'KEY_RISE_0': riseTimes[0],
     'KEY_RISE_1': riseTimes[1],
@@ -15,7 +13,9 @@ function sendBackToPebble(lat, long, hasData, alt, altAcc, offsetHrs, riseTimes)
     'KEY_RISE_5': riseTimes[5],
     'KEY_RISE_6': riseTimes[6]
   };
-
+	
+	//console.log("Data is about to be sent back to phone; lat is " + dictionary.KEY_LATITUDE);
+	
   // Send to Pebble
   Pebble.sendAppMessage(dictionary,
     function(e) {
@@ -26,21 +26,15 @@ function sendBackToPebble(lat, long, hasData, alt, altAcc, offsetHrs, riseTimes)
     }
   );
 }
-
 // Function for when location gathering is successful
 function locationSuccess(pos) {
     // Return the position data to the watch
+	//console.log("Location succesfully found; latitude is " + pos.coords.latitude);
     var latitude = parseInt(pos.coords.latitude * 100);
     var longitude = parseInt(pos.coords.longitude * 100);
-    var altitude = 0;
-    var altitudeAcc = 0;
-    if (pos.coords.altitude !== null) {
-      altitude = parseInt(pos.coords.altitude);
-    }
-    if (pos.coords.altitudeAccuracy !== null) {
-      altitudeAcc = parseInt(pos.coords.altitudeAccuracy);
-    }
-    var useOldData = 0;
+    var useOldData = 1;		//Have to set new data to 1 and no data as 0, so the fallback is no data (empty = 0) -> This is for the watch side of things
+	
+	//console.log("Latitude transformed to integer " + latitude);
     
     // Get the number of hours to add to convert localtime to utc
     var offsetHrs = new Date().getTimezoneOffset() / -60;
@@ -54,36 +48,29 @@ function locationSuccess(pos) {
     //console.log('Date' + i + ' ' + tempDate.getFullYear() + '/' + (tempDate.getMonth() + 1) + '/' + tempDate.getDate() + " Moon rise " + riseTimes[i]);
   }
   
-  sendBackToPebble(latitude, longitude, useOldData, altitude, altitudeAcc, offsetHrs, riseTimes);
+  sendBackToPebble(latitude, longitude, useOldData, offsetHrs, riseTimes);
 }
-
 // Function for when the location gathering is unsuccessful
 function locationError(err) {
-  console.log("Error requesting location!");
+  //console.log("Error requesting location!");
   // Return a failure --> Use last know position
   var latitude = 0;
   var longitude = 0;
-  var altitude = 0;
-  var altitudeAcc = 0;
-  var useOldData = 1;
+  var useNewData = 0;
   var riseTime1 = 0;
   
   // Get the number of minutes to add to convert localtime to utc
   var offsetHrs = new Date().getTimezoneOffset();
-  sendBackToPebble(latitude, longitude, useOldData, altitude, altitudeAcc, offsetHrs, riseTime1);
+  sendBackToPebble(latitude, longitude, useNewData, offsetHrs, riseTime1);
 }
 // Function to get the current position
 function getLocation() {
-  navigator.geolocation.getCurrentPosition(locationSuccess, locationError, {enableHighAccuracy: true, timeout: 15000, maximumAge: 60000});
+  navigator.geolocation.getCurrentPosition(locationSuccess, locationError, {enableHighAccuracy: false, timeout: 5000, maximumAge: 900000});
 }
-
 // Listen for when the watchface is opened
 Pebble.addEventListener('ready', 
   function(e) {
     console.log('PebbleKit JS ready!');
-    
-    //Get location
-    getLocation();
   }
 );
 // Listen for when an AppMessage is received

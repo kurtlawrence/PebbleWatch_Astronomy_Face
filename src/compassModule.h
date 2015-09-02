@@ -34,7 +34,6 @@ static void update_compass(int bearing) {
   // Display this date on the TextLayer
   text_layer_set_text(s_compassBearing_layer, buffer);
 }
-
 static void show_calibration_screen() {
   // Create long-lived buffer
   static char buffer[] = "na";
@@ -43,23 +42,25 @@ static void show_calibration_screen() {
   text_layer_set_text(s_compassBearing_layer, buffer);
   text_layer_set_text(s_compassHeading_layer, buffer);
 }
-
 void compass_callback(CompassHeadingData heading) {
   if (heading.compass_status != CompassStatusDataInvalid) {
-    update_compass(TRIGANGLE_TO_DEG((int)heading.true_heading));
+    update_compass(360 - TRIGANGLE_TO_DEG((int)heading.true_heading));
   } else {
     // Heading not available yet - Show calibration UI to user
     show_calibration_screen();
   }
 }
-
 static void compassModule_init() { 
+	//APP_LOG(APP_LOG_LEVEL_INFO, "Entered compass module init");
   // Register to the CompassService for heading updates
+	compassIsDisplayed = 1;
   compass_service_subscribe(compass_callback);
-  compass_service_set_heading_filter(TRIG_MAX_ANGLE / 72);    //Only update the compass if the heading changes more than 3 degrees
+  compass_service_set_heading_filter(TRIG_MAX_ANGLE / 180);    //Only update the compass if the heading changes more than 2 degrees
 }
-
 static void compassModule_deinit() {
   // Unsubscribe from compass service when not on this watch face
+	//APP_LOG(APP_LOG_LEVEL_INFO, "Entered compass module deinit");
+	compassIsDisplayed = 0;
   compass_service_unsubscribe();
+	show_calibration_screen();
 }

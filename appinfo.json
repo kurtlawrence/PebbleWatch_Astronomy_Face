@@ -1,9 +1,7 @@
 {
     "appKeys": {
-        "KEY_ALTACC": 3,
-        "KEY_ALTITUDE": 2,
-        "KEY_LATITUDE": 0,
-        "KEY_LONGITUDE": 1,
+        "KEY_LATITUDE": 1,
+        "KEY_LONGITUDE": 2,
         "KEY_RISE_0": 6,
         "KEY_RISE_1": 7,
         "KEY_RISE_2": 8,
@@ -87,7 +85,7 @@
         "basalt"
     ],
     "uuid": "6d4b7965-4085-41a7-9b11-fff84e389997",
-    "versionLabel": "1.1",
+    "versionLabel": "2.0",
     "watchapp": {
         "watchface": true
     }

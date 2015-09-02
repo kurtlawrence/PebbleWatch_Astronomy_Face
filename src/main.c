@@ -1,6 +1,26 @@
 #include <pebble.h>
+enum {
+	APP_VERSION = 4
+};		//Define the version number
+enum {
+  LAT_STORED = 0,
+  LNG_STORED = 1,
+  RISE0_STORED = 2,
+  RISE1_STORED = 3,
+  RISE2_STORED = 4,
+  RISE3_STORED = 5,
+  RISE4_STORED = 6,
+  RISE5_STORED = 7,
+  RISE6_STORED = 8,
+  UTC_STORED = 9,
+  LAST_STORED = 10,
+  LDATE_STORED = 11,
+	VERSCREEN_STORED = 12
+};    //Keys for local persistent storage
   
 static Window *s_main_window;      // Initialize the watch face window pointer
+static Window *s_settings_window;		//Declare the settings window
+static Window *s_version_window;		//Declare the new version window
 static TextLayer *s_time_layer;    // Initialize the time value text layer pointer
 static TextLayer *s_date_layer1;    // Initialise the date value text layer pointer
 static TextLayer *s_date_layer2;    // Initialise the second date value text layer pointer
@@ -17,203 +37,270 @@ static BitmapLayer *s_moonIcon_layer;    //Declare the moonIcon layer
 static GBitmap *s_moonIcon_bitmap;			//Declare the moonIcon bitmap
 static TextLayer *s_UTC_layer;        //Declare UTC text layer
 static TextLayer *s_Coords_layer;      //Declare the lat and long data text layer
-static TextLayer *s_background_layer;    //Declare the background layer
 static TextLayer *s_degreeSymbol_layer;  //Declare the degree symbol layer
 static BitmapLayer *s_battName_layer;      //Declare the battery logo
 static GBitmap *s_battIcon_bitmap;      //Declare the battery icon bitmap
+static TextLayer *s_settingsTop_layer;		//Declare the settings top text layer
+static TextLayer *s_settingsBottom_layer;		//Declare the settings bottow text layer
+static TextLayer *s_version_layer;			//Declare the text layer shown for screen update
+static TextLayer *s_AMorPM_layer;				//Declare the text layer showing whether it is AM or PM
 
+//Load and unload main window (main display)
+static void main_window_load(Window *window) {}
+static void main_window_unload(Window *window) {}
 
-static void main_window_load(Window *window) {
-  // Create the background colour --> Create16
-  s_background_layer = text_layer_create(GRect(0,0,144,168));
-  text_layer_set_background_color(s_background_layer, GColorBlack);
-  
-  // Create time TextLayer --> Create2
+//Load and unload settings window (compass and gps options)
+static void settings_window_load(Window *window) {
+	// Create Top settings TextLayer --> Create21
+  s_settingsTop_layer = text_layer_create(GRect(0, 21, 144, 63));
+  text_layer_set_background_color(s_settingsTop_layer, GColorBlack);
+  text_layer_set_text_color(s_settingsTop_layer, GColorWhite);
+  text_layer_set_text_alignment(s_settingsTop_layer, GTextAlignmentCenter);
+	text_layer_set_overflow_mode(s_settingsTop_layer, GTextOverflowModeWordWrap);
+  text_layer_set_font(s_settingsTop_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24));
+	
+	// Create Top settings TextLayer --> Create22
+  s_settingsBottom_layer = text_layer_create(GRect(0, 95, 144, 63));
+  text_layer_set_background_color(s_settingsBottom_layer, GColorBlack);
+  text_layer_set_text_color(s_settingsBottom_layer, GColorWhite);
+  text_layer_set_text_alignment(s_settingsBottom_layer, GTextAlignmentCenter);
+	text_layer_set_overflow_mode(s_settingsBottom_layer, GTextOverflowModeWordWrap);
+  text_layer_set_font(s_settingsBottom_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24));	
+	
+	layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_settingsTop_layer));
+	layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_settingsBottom_layer));
+	
+	//Add the text
+	text_layer_set_text(s_settingsTop_layer, "{SHAKE}\nto force update GPS");
+	text_layer_set_text(s_settingsBottom_layer, "<-- TAP SIDE -->\nto toggle compass");
+}
+static void settings_window_unload(Window *window) {
+	text_layer_destroy(s_settingsTop_layer);
+	text_layer_destroy(s_settingsBottom_layer);
+}
+
+//Load and unload for new version window
+static void version_window_load(Window *window) {
+	// Create Top settings TextLayer --> Create20
+  s_version_layer = text_layer_create(GRect(0, 0, 144, 168));
+  text_layer_set_background_color(s_version_layer, GColorBlack);
+  text_layer_set_text_color(s_version_layer, GColorWhite);
+  text_layer_set_text_alignment(s_version_layer, GTextAlignmentCenter);
+	text_layer_set_overflow_mode(s_version_layer, GTextOverflowModeWordWrap);
+  text_layer_set_font(s_version_layer, fonts_get_system_font(FONT_KEY_GOTHIC_18));
+	
+	layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_version_layer));
+	
+	text_layer_set_text(s_version_layer, "Welcome to v2.0\nBuild 4\nRefer to changelog for updates\nShake 3 times within a minute to active settings screen\nPlease be patient with gesture recognition");
+}
+static void version_window_unload(Window *window) {
+	text_layer_destroy(s_version_layer);		//Destroy text layer -->Create23
+}
+
+static int settingsScreenShown;
+static int compassIsDisplayed;
+static int shakeCount;
+#include <timeModule.h>    // Time module installed
+#include <compassModule.h>  //Compass module installed
+#include <tapService.h>			//Tap service handling module installed
+static void init() {
+	//Create the three windows
+  s_main_window = window_create();																			// Create main Window element and assign to pointer --> Create1
+	window_set_background_color(s_main_window, GColorBlack);							// Set the background color to black
+  window_set_window_handlers(s_main_window, (WindowHandlers) {
+    .load = main_window_load,
+    .unload = main_window_unload
+  });			// Set handlers to manage the elements inside the Window
+	s_settings_window = window_create();																	// Create the settings window element --> Create2
+	window_set_background_color(s_settings_window, GColorBlack);					// Set the background color to black
+	window_set_window_handlers(s_settings_window, (WindowHandlers) {
+    .load = settings_window_load,
+    .unload = settings_window_unload
+  });	// Set handlers for settings window
+	s_version_window = window_create();																		// Create the new version window element --> Create3
+	window_set_window_handlers(s_version_window, (WindowHandlers) {
+    .load = version_window_load,
+    .unload = version_window_unload
+  });	// Set handlers for new version window
+	
+	// Create the main display text layers, these need to persist across windows (essentially runnning in background)
+	// Create time TextLayer --> Create4
   s_time_layer = text_layer_create(GRect(0, 0, 144, 44));
   text_layer_set_background_color(s_time_layer, GColorBlack);
   text_layer_set_text_color(s_time_layer, GColorWhite);
   text_layer_set_text_alignment(s_time_layer, GTextAlignmentCenter);
   text_layer_set_font(s_time_layer, fonts_get_system_font(FONT_KEY_BITHAM_42_BOLD));
-  
-  // Create date1 TextLayer --> Create3
+  // Create date1 TextLayer --> Create5
   s_date_layer1 = text_layer_create(GRect(0, 44, 144, 21));
   text_layer_set_background_color(s_date_layer1, GColorBlack);
   text_layer_set_text_color(s_date_layer1, GColorWhite);
   text_layer_set_text_alignment(s_date_layer1, GTextAlignmentCenter);
   text_layer_set_font(s_date_layer1, fonts_get_system_font(FONT_KEY_GOTHIC_18_BOLD));
-  
-  // Create date2 TextLayer --> Create4
+  // Create date2 TextLayer --> Create6
   s_date_layer2 = text_layer_create(GRect(0, 65, 144, 16));
   text_layer_set_background_color(s_date_layer2, GColorBlack);
   text_layer_set_text_color(s_date_layer2, GColorWhite);
   text_layer_set_text_alignment(s_date_layer2, GTextAlignmentCenter);
   text_layer_set_font(s_date_layer2, fonts_get_system_font(FONT_KEY_GOTHIC_14));
-  
-  // Create compass1 TextLayer --> Create5
+  // Create compass1 TextLayer --> Create7
   s_compassBearing_layer = text_layer_create(GRect(0, 110, 40, 28));
   text_layer_set_background_color(s_compassBearing_layer, GColorBlack);
   text_layer_set_text_color(s_compassBearing_layer, GColorWhite);
   text_layer_set_text_alignment(s_compassBearing_layer, GTextAlignmentRight);
   text_layer_set_font(s_compassBearing_layer, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
-  
-  // Create compass2 TextLayer --> Create6
-  s_compassHeading_layer = text_layer_create(GRect(48, 110, 32, 28));
+  // Create compass heading TextLayer --> Create8
+  s_compassHeading_layer = text_layer_create(GRect(47, 110, 32, 28));
   text_layer_set_background_color(s_compassHeading_layer, GColorBlack);
   text_layer_set_text_color(s_compassHeading_layer, GColorWhite);
   text_layer_set_text_alignment(s_compassHeading_layer, GTextAlignmentLeft);
   text_layer_set_font(s_compassHeading_layer, fonts_get_system_font(FONT_KEY_GOTHIC_28_BOLD));
-  
-  // Create battery1 TextLayer --> Create7
-  s_battery_layer = text_layer_create(GRect(90, 110, 54, 24));
+  // Create battery TextLayer --> Create9
+  s_battery_layer = text_layer_create(GRect(96, 110, 54, 24));
   text_layer_set_background_color(s_battery_layer, GColorBlack);
   text_layer_set_text_color(s_battery_layer, GColorWhite);
   text_layer_set_text_alignment(s_battery_layer, GTextAlignmentLeft);
   text_layer_set_font(s_battery_layer, fonts_get_system_font(FONT_KEY_GOTHIC_24_BOLD));
-  
-  // Create moonRise TextLayer --> Create8
+  // Create moonRise TextLayer --> Create10
   s_moonRise_layer = text_layer_create(GRect(92, 96, 52, 14));
   text_layer_set_background_color(s_moonRise_layer, GColorClear);
   text_layer_set_text_color(s_moonRise_layer, GColorWhite);
   text_layer_set_text_alignment(s_moonRise_layer, GTextAlignmentCenter);
   text_layer_set_font(s_moonRise_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
-  
-  // Create moonPhase TextLayer --> Create9
-  s_moonPhase_layer = text_layer_create(GRect(92, 81, 52, 16));
-  text_layer_set_background_color(s_moonPhase_layer, GColorBlack);
+  // Create moonPhase TextLayer --> Create11
+  s_moonPhase_layer = text_layer_create(GRect(92, 80, 52, 16));
+  text_layer_set_background_color(s_moonPhase_layer, GColorClear);
   text_layer_set_text_color(s_moonPhase_layer, GColorWhite);
   text_layer_set_text_alignment(s_moonPhase_layer, GTextAlignmentCenter);
   text_layer_set_font(s_moonPhase_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
-  
-  // Create sunRise TextLayer --> Create10
+  // Create sunRise TextLayer --> Create12
   s_sunRise_layer = text_layer_create(GRect(30, 96, 28, 14));
   text_layer_set_background_color(s_sunRise_layer, GColorBlack);
   text_layer_set_text_color(s_sunRise_layer, GColorWhite);
   text_layer_set_text_alignment(s_sunRise_layer, GTextAlignmentCenter);
   text_layer_set_font(s_sunRise_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
-  
-  // Create sunSet TextLayer --> Create11
-  s_sunSet_layer = text_layer_create(GRect(30, 81, 28, 14));
-  text_layer_set_background_color(s_sunSet_layer, GColorBlack);
+  // Create sunSet TextLayer --> Create13
+  s_sunSet_layer = text_layer_create(GRect(30, 80, 28, 14));
+  text_layer_set_background_color(s_sunSet_layer, GColorClear);
   text_layer_set_text_color(s_sunSet_layer, GColorWhite);
   text_layer_set_text_alignment(s_sunSet_layer, GTextAlignmentCenter);
   text_layer_set_font(s_sunSet_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
-  
-  // Create sunIcon bitmap layer --> Create 12
+  // Create sunIcon bitmap layer --> Create 14
   s_sunIcon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_SunRiseSet_icon);
   s_sunIcon_layer = bitmap_layer_create(GRect(0, 82, 28, 28));
   bitmap_layer_set_bitmap(s_sunIcon_layer, s_sunIcon_bitmap);
-  
-  // Create moonIcon bitmap layer --> Create 13
-  s_moonIcon_layer = bitmap_layer_create(GRect(62, 82, 28, 28));      //Only create layer, the bitmap gets created layer
-  
-  // Create UTC TextLayer --> Create14
-  s_UTC_layer = text_layer_create(GRect(0, 138, 144, 14));
-  text_layer_set_background_color(s_UTC_layer, GColorBlack);
+  // Create moonIcon bitmap layer --> Create 15
+  s_moonIcon_layer = bitmap_layer_create(GRect(62, 82, 28, 28));      //Only create layer, the bitmap gets created later
+  // Create UTC TextLayer --> Create16
+  s_UTC_layer = text_layer_create(GRect(0, 138, 144, 16));
+  text_layer_set_background_color(s_UTC_layer, GColorClear);
   text_layer_set_text_color(s_UTC_layer, GColorWhite);
   text_layer_set_text_alignment(s_UTC_layer, GTextAlignmentCenter);
   text_layer_set_font(s_UTC_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
-  
-  // Create GPS TextLayer --> Create15
+  // Create GPS TextLayer --> Create17
   s_Coords_layer = text_layer_create(GRect(0, 152, 144, 16));
-  text_layer_set_background_color(s_Coords_layer, GColorBlack);
+  text_layer_set_background_color(s_Coords_layer, GColorClear);
   text_layer_set_text_color(s_Coords_layer, GColorWhite);
   text_layer_set_text_alignment(s_Coords_layer, GTextAlignmentCenter);
   text_layer_set_font(s_Coords_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
-  
-  //Create the degree symbol text layer --> Create17
+  //Create the degree symbol text layer --> Create18
   s_degreeSymbol_layer = text_layer_create(GRect(40,110,8,16));
-  text_layer_set_background_color(s_degreeSymbol_layer, GColorBlack);
+  text_layer_set_background_color(s_degreeSymbol_layer, GColorClear);
   text_layer_set_text_color(s_degreeSymbol_layer, GColorWhite);
   text_layer_set_text_alignment(s_degreeSymbol_layer, GTextAlignmentLeft);
   text_layer_set_font(s_degreeSymbol_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14));
-  
-  //Create the battery name text layer --> Create18
+  //Create the battery name text layer --> Create19
   s_battIcon_bitmap = gbitmap_create_with_resource(RESOURCE_ID_Battery_icon);
-  s_battName_layer = bitmap_layer_create(GRect(80, 118, 10, 20));
+  s_battName_layer = bitmap_layer_create(GRect(84, 118, 10, 20));
   bitmap_layer_set_bitmap(s_battName_layer, s_battIcon_bitmap);
-  
+	//Create the am or pm text layer --> Create23
+  s_AMorPM_layer = text_layer_create(GRect(126,10,18,40));
+  text_layer_set_background_color(s_AMorPM_layer, GColorClear);
+  text_layer_set_text_color(s_AMorPM_layer, GColorWhite);
+  text_layer_set_text_alignment(s_AMorPM_layer, GTextAlignmentLeft);
+	text_layer_set_overflow_mode(s_AMorPM_layer, GTextOverflowModeWordWrap);
+  text_layer_set_font(s_AMorPM_layer, fonts_get_system_font(FONT_KEY_GOTHIC_14_BOLD));
+	
   //Set the degree symbol now
   static char degSymbol[] = "o";
   text_layer_set_text(s_degreeSymbol_layer, degSymbol);
-  
-
   // Add it as a child layer to the Window's root layer
-  layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_background_layer));
-  layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_time_layer));
-  layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_date_layer1));
-  layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_date_layer2));
-  layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_compassBearing_layer));
-  layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_compassHeading_layer));
-  layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_battery_layer));
-  layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_moonRise_layer));
-  layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_moonPhase_layer));
-  layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_sunRise_layer));
-  layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_sunSet_layer));
-  layer_add_child(window_get_root_layer(window), bitmap_layer_get_layer(s_sunIcon_layer));
-  layer_add_child(window_get_root_layer(window), bitmap_layer_get_layer(s_moonIcon_layer));
-  layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_UTC_layer));
-  layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_Coords_layer));
-  layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_degreeSymbol_layer));
-  layer_add_child(window_get_root_layer(window), bitmap_layer_get_layer(s_battName_layer));
-}
-
-static void main_window_unload(Window *window) {
-  text_layer_destroy(s_time_layer);          // Destroy the text layer showing the time --> Create2
-  text_layer_destroy(s_date_layer1);        //Destroy the date1 text layer --> Create3
-  text_layer_destroy(s_date_layer2);        //Destroy the date2 text layer --> Create4
-  text_layer_destroy(s_compassBearing_layer);      //Destroy the compass1 text layer --> Create5
-  text_layer_destroy(s_compassHeading_layer);      //Destroy the compass2 text layer --> Create6
-  text_layer_destroy(s_battery_layer);      //Destroy the battery1 text layer --> Create7
-  text_layer_destroy(s_moonRise_layer);      //Destroy the battery1 text layer --> Create8
-  text_layer_destroy(s_moonPhase_layer);      //Destroy the battery1 text layer --> Create9
-  text_layer_destroy(s_sunRise_layer);    //Destroy the sunRise text layer --> Create10
-  text_layer_destroy(s_sunSet_layer);      //Destroy the sunSet text layer --> Create11
-  bitmap_layer_destroy(s_sunIcon_layer);      //Destroy the sunIcon bitmap layer --> Create12
-    gbitmap_destroy(s_sunIcon_bitmap);        //Destroy the sunIcon bitmap
-  bitmap_layer_destroy(s_moonIcon_layer);      //Destroy the moonIcon bitmap layer --> Create13    (Bitmap is destroyed in moon module deinit)
-		gbitmap_destroy(s_moonIcon_bitmap);				//Destroy the moonIcon bitmap
-  text_layer_destroy(s_UTC_layer);        //Destroy the UTC text layer --> Create14
-  text_layer_destroy(s_Coords_layer);      //Destroy the GPS layer --> Create15
-  text_layer_destroy(s_background_layer);    //Destroy the background color --> Create16
-  text_layer_destroy(s_degreeSymbol_layer);    //Destroy the background color --> Create17
-  bitmap_layer_destroy(s_battName_layer);    //Destroy the background color --> Create18
-    gbitmap_destroy(s_battIcon_bitmap);    //Destroy the battery icon bitmap
-}
-
-#include <timeModule.h>    // Time module installed
-#include <compassModule.h>  //Compass module installed
-static void init() {
-  // Create main Window element and assign to pointer --> Create1
-  s_main_window = window_create();
+  layer_add_child(window_get_root_layer(s_main_window), text_layer_get_layer(s_time_layer));
+  layer_add_child(window_get_root_layer(s_main_window), text_layer_get_layer(s_date_layer1));
+  layer_add_child(window_get_root_layer(s_main_window), text_layer_get_layer(s_date_layer2));
+  layer_add_child(window_get_root_layer(s_main_window), text_layer_get_layer(s_compassBearing_layer));
+  layer_add_child(window_get_root_layer(s_main_window), text_layer_get_layer(s_compassHeading_layer));
+  layer_add_child(window_get_root_layer(s_main_window), text_layer_get_layer(s_battery_layer));
+  layer_add_child(window_get_root_layer(s_main_window), text_layer_get_layer(s_moonRise_layer));
+  layer_add_child(window_get_root_layer(s_main_window), text_layer_get_layer(s_moonPhase_layer));
+  layer_add_child(window_get_root_layer(s_main_window), text_layer_get_layer(s_sunRise_layer));
+  layer_add_child(window_get_root_layer(s_main_window), text_layer_get_layer(s_sunSet_layer));
+  layer_add_child(window_get_root_layer(s_main_window), bitmap_layer_get_layer(s_sunIcon_layer));
+  layer_add_child(window_get_root_layer(s_main_window), bitmap_layer_get_layer(s_moonIcon_layer));
+  layer_add_child(window_get_root_layer(s_main_window), text_layer_get_layer(s_UTC_layer));
+  layer_add_child(window_get_root_layer(s_main_window), text_layer_get_layer(s_Coords_layer));
+  layer_add_child(window_get_root_layer(s_main_window), text_layer_get_layer(s_degreeSymbol_layer));
+  layer_add_child(window_get_root_layer(s_main_window), bitmap_layer_get_layer(s_battName_layer));
+	layer_add_child(window_get_root_layer(s_main_window), text_layer_get_layer(s_AMorPM_layer));
+	
+	
+	window_stack_push(s_main_window, true);		//Put the main display at the bottom of the stack
+	
+	settingsScreenShown = 0;
+	compassIsDisplayed = 0;		//Turn compass off when initialised
+	
+	compassModule_deinit();       //Initialise compassModule
+  batteryModule_init();       //Initialise batteryModule
+  moonModule_init();          //Initialise moonModule
+	tapService_init();			//Initialise the tap service module, could possibly call compassModule functions
+  timeModule_init();    	//Initialise timeModule, now can possibly call moonModule and batteryModule functions
   
-  // Set handlers to manage the elements inside the Window
-  window_set_window_handlers(s_main_window, (WindowHandlers) {
-    .load = main_window_load,
-    .unload = main_window_unload
-  });
-  
-  // Show the Window on the watch, with anitmated=true
-  window_stack_push(s_main_window, true);
-  
-  // Initialise the add-on modules
-  timeModule_init();    //Initialise timeModule
-  compassModule_init();        //Initialise compassModule
-  batteryModule_init();                          //Initialise batteryModule
-  moonModule_init();                  //Initialise moonModule
+	
+	//Display the appropiate window (if new version has not been seen yet show that screen)
+	if (persist_read_int(VERSCREEN_STORED) != APP_VERSION) {
+		//APP_LOG(APP_LOG_LEVEL_INFO, "Verscreen persist does not equal version number");
+		shakeCount = 10;		//High value for flagging purposes
+		window_stack_push(s_version_window, true);			//Display the welcome screen to the new version
+	} else {
+		//APP_LOG(APP_LOG_LEVEL_INFO, "Verscreen persist is equal to the current app version");
+		shakeCount = 0;
+	}
 }
-
 static void deinit() {
   // Call the add-on deinits if available, do this before destroying the main window
+	tapService_deinit();				//Deinit tap service, stops possible calls to moonModule, compassModule
+	timeModule_deinit();        //Deinit the time module, stops possible calls to moonModule, batteryModule
   moonModule_deinit();        //Deinit the moonModule
   batteryModule_deinit();    // Deinit the battery module
   compassModule_deinit();    // Deinit the compass module
-  timeModule_deinit();        //Deinit the time module
-  
-  
-  // Destroy the window create --> Create1
-  window_destroy(s_main_window);  
+	// After all the deinits for each module, there should be no interruptions from services that can interfere with the destruction of text layers/windows
+	
+	// Destroy the persistent text layers
+	text_layer_destroy(s_AMorPM_layer);				//Destroy the am or pm text layer --> Create23
+		gbitmap_destroy(s_battIcon_bitmap);    //Destroy the battery icon bitmap
+	bitmap_layer_destroy(s_battName_layer);    //Destroy the battery icon layer --> Create19
+	text_layer_destroy(s_degreeSymbol_layer);    //Destroy the degree symbol layer --> Create18
+	text_layer_destroy(s_Coords_layer);      //Destroy the GPS layer --> Create17
+	text_layer_destroy(s_UTC_layer);        //Destroy the UTC text layer --> Create16
+		gbitmap_destroy(s_moonIcon_bitmap);				//Destroy the moonIcon bitmap
+	bitmap_layer_destroy(s_moonIcon_layer);      //Destroy the moonIcon bitmap layer --> Create15
+	  gbitmap_destroy(s_sunIcon_bitmap);        //Destroy the sunIcon bitmap
+	bitmap_layer_destroy(s_sunIcon_layer);      //Destroy the sunIcon bitmap layer --> Create14
+	text_layer_destroy(s_sunSet_layer);      //Destroy the sunSet text layer --> Create13
+	text_layer_destroy(s_sunRise_layer);    //Destroy the sunRise text layer --> Create12
+	text_layer_destroy(s_moonPhase_layer);      //Destroy the moon phase text layer --> Create11
+	text_layer_destroy(s_moonRise_layer);      //Destroy the moon rise text layer --> Create10
+	text_layer_destroy(s_battery_layer);      //Destroy the battery1 text layer --> Create9
+	text_layer_destroy(s_compassHeading_layer);      //Destroy the compass2 text layer --> Create8
+	text_layer_destroy(s_compassBearing_layer);      //Destroy the compass1 text layer --> Create7
+	text_layer_destroy(s_date_layer2);        //Destroy the date2 text layer --> Create6
+	text_layer_destroy(s_date_layer1);        //Destroy the date1 text layer --> Create5
+	text_layer_destroy(s_time_layer);          // Destroy the text layer showing the time --> Create4
+	
+  // Destroy the windows
+	window_destroy(s_version_window);		//Destroy the version window --> Create3
+  window_destroy(s_settings_window);	//Destroy the settings window --> Create2
+  window_destroy(s_main_window);  		// Destroy the  main window create --> Create1
 }
-
 
 int main(void) {
   // Main function loop

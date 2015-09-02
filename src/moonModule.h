@@ -1,9 +1,7 @@
-// This module adds a web get to retrieve the moon phase for the location. The module must be placed before the time module as it requires updating every hour.
+// This module adds a web get to retrieve the moon phase for the location. The module must be placed before the time module as it requires updating every set number of hours.
 enum {
-  KEY_LATITUDE = 0,
-  KEY_LONGITUDE = 1,
-  KEY_ALTITUDE = 2,
-  KEY_ALTACC = 3,
+  KEY_LATITUDE = 1,
+  KEY_LONGITUDE = 2,
   KEY_USEOLDDATA = 4,
   KEY_UTCh = 5,
   KEY_RISE_0 = 6,
@@ -14,32 +12,13 @@ enum {
   KEY_RISE_5 = 11,
   KEY_RISE_6 = 12
 };    //Keys for JS implementation
-enum {
-  LAT_STORED = 0,
-  LNG_STORED = 1,
-  RISE0_STORED = 2,
-  RISE1_STORED = 3,
-  RISE2_STORED = 4,
-  RISE3_STORED = 5,
-  RISE4_STORED = 6,
-  RISE5_STORED = 7,
-  RISE6_STORED = 8,
-  UTC_STORED = 9,
-  LAST_STORED = 10,
-  LDATE_STORED = 11
-};    //Keys for local persistent storage
 static float latitude;
 static float longitude;
 static float UToffset;
 static int lastUpdateTime;
 static int altitude;
 static int altitudeAcc;
-static int localDebugDisp;    //0 or 1 for debug mode, when debug mode, prints values
-
-void dispVal(int val, char valName[]) {
-  //Displays the value
-  APP_LOG(APP_LOG_LEVEL_DEBUG, "%s %d", valName, val);
-}
+static int GPScalls;
 
 static int returnHour(int timeCode) {
   return timeCode / 100;
@@ -51,25 +30,12 @@ static int returnMinOnes(int timeCode) {
   return timeCode % 10;
 }
 
-static void update_GPS() {
-  // Begin dictionary
-  DictionaryIterator *iter;
-  app_message_outbox_begin(&iter);
-
-  // Add a key-value pair
-  dict_write_uint8(iter, 0, 0);
-
-  // Send the message!
-  app_message_outbox_send();
-}
 
 // THIS IS THE START OF THE SUN/MOON PHASE CALCULATIONS------------------------------------------------------------------------------------------------------------------------------------------------------
 //Due to the weird trig functions, it is possible that everything is done in degrees! NOTE, moon rise must be calculated by phone (too many errors)
 // Adapted from http://www.stjarnhimlen.se/comp/ppcomp.html
-
 // Create some constants
 static double PI = 3.14159265359;
-
 static long calc_d_JDate(long dateInCodeFormat) {
   //Converts the date given in code format into a julian date set by the reference website
   long yearVar = dateInCodeFormat / 10000;
@@ -79,7 +45,6 @@ static long calc_d_JDate(long dateInCodeFormat) {
   
   return temp;
 }
-
 static double modDecimal(double x, double divisor) {
   //A modulus operator that results in positive decimal remainders
   double temp = x;
@@ -105,27 +70,73 @@ static double modDecimal(double x, double divisor) {
   
   return temp;
 }
-
 static double Abs(double x) {
   if (x < 0) {
     x = -x;
   }
   return x;
 }
-
 static double Sin(double xDeg) {
   //Unfortunately sin will not work on doubles so this work around will return the sin as a decimal in degrees!
   int32_t trigAngle = TRIG_MAX_ANGLE * xDeg / 360;
   return (double)sin_lookup(trigAngle) / TRIG_MAX_RATIO;
 }
-
 static double Cos(double xDeg) {
   //Same as sin, need to function using the lookup value
   int32_t trigAngle = TRIG_MAX_ANGLE * xDeg / 360;
   return (double)cos_lookup(trigAngle) / TRIG_MAX_RATIO;
 }
+double powerOfTen (int num) {
+	double rst = 1.0;
+	if (num >= 0) {
+		for(int i = 0; i < num ; i++){
+			rst *= 10.0;
+		}
+	} else {
+		for(int i = 0; i < (0 - num ); i++){
+			rst *= 0.1;
+		}
+	}
+	return rst;
+}
+double my_sqrt(double a) {
+	// Thanks to http://www.codeproject.com/Articles/570700/SquareplusRootplusalgorithmplusforplusC for a more accurate sqrt method
+	// find more detail of this method on wiki methods_of_computing_square_roots
+	// Babylonian method cannot get exact zero but approximately value of the square_root
+	double z = a; 
+	double rst = 0.0;
+	int max = 8;     // to define maximum digit 
+	int i;
+	double j = 1.0;
+	for(i = max ; i > 0 ; i--){
+		// value must be bigger then 0
+		if (z - (( 2 * rst ) + ( j * powerOfTen(i)))*( j * powerOfTen(i)) >= 0) {
+			while ( z - (( 2 * rst ) + ( j * powerOfTen(i)))*( j * powerOfTen(i)) >= 0) {
+				j++;
+				if (j >= 10) {break;}
+			}
+			j--; //correct the extra value by minus one to j
+			z -= (( 2 * rst ) + ( j * powerOfTen(i)))*( j * powerOfTen(i)); //find value of z
+			rst += j * powerOfTen(i);     // find sum of a
+			j = 1.0;
+		}
+	}
 
-static float my_sqrt(const float num) {
+	for (i = 0 ; i >= 0 - max ; i--) {
+		if (z - (( 2 * rst ) + ( j * powerOfTen(i)))*( j * powerOfTen(i)) >= 0) {
+			while ( z - (( 2 * rst ) + ( j * powerOfTen(i)))*( j * powerOfTen(i)) >= 0) {
+				j++;
+			}
+			j--;
+			z -= (( 2 * rst ) + ( j * powerOfTen(i)))*( j * powerOfTen(i)); //find value of z
+			rst += j * powerOfTen(i);     // find sum of a
+			j = 1.0;
+		}
+	}
+	// find the number on each digit
+	return rst;
+}
+/*static float my_sqrt(const float num) {
   //Thanks to http://forums.getpebble.com/discussion/5792/sqrt-function for creating an accurate sqrt function
   const uint MAX_STEPS = 40;
   const float MAX_ERROR = 0.0001;
@@ -138,8 +149,7 @@ static float my_sqrt(const float num) {
     ans_sqr = answer * answer;
   }
   return answer;
-}
-
+}*/
 static double arctan2(double ynum, double xnum) {
   //As with the sin and cos functions, arc tan must be altered to keep some form of accuracy along the way
   double xMaxMultiplier = Abs(32767 / xnum);
@@ -156,14 +166,12 @@ static double arctan2(double ynum, double xnum) {
   temp = temp / TRIG_MAX_ANGLE * 360;
   return temp;
 }
-
 static double arccos(double xnum) {
   return arctan2(my_sqrt((1 + xnum) * (1 - xnum)), xnum);
 }
-
 static int SunRiseSetTimes(long dateVar, double localLat_deg, double localLng_deg, int isSunSet) {
   //Returns the sun set or rise in HHMM. Rise is set to the next day
-  APP_LOG(APP_LOG_LEVEL_INFO, "Entered SunRiseSetTimes");
+  //APP_LOG(APP_LOG_LEVEL_INFO, "Entered SunRiseSetTimes");
   //Set constants
   int localTimeVar = 1200;
   double h_trigger = -0.833;
@@ -184,8 +192,8 @@ static int SunRiseSetTimes(long dateVar, double localLat_deg, double localLng_de
   double M_sun = modDecimal(356.047 + 0.9856002585 * d, 360);
   double e_sun = 0.016709 - 0.000000001151 * d;
   double E_anomaly_sun = M_sun + e_sun * 180 / PI * Sin(M_sun) * (1 + e_sun * Cos(M_sun));
-  double xv_sun = Cos(E_anomaly_sun) - e_sun;
-  double yv_sun = my_sqrt(1 - e_sun * e_sun) * Sin(E_anomaly_sun);
+  double xv_sun = (Cos(E_anomaly_sun) - e_sun) * 1000;		// Sun distance is mulitplied by 1000 for increased sqrt accuracy
+  double yv_sun = (my_sqrt(1 - e_sun * e_sun) * Sin(E_anomaly_sun)) * 1000;
   double v_sun = arctan2(yv_sun, xv_sun);
   double r_sun = my_sqrt(xv_sun * xv_sun + yv_sun * yv_sun);
   double Ls = v_sun + w_sun;
@@ -237,10 +245,9 @@ static int SunRiseSetTimes(long dateVar, double localLat_deg, double localLng_de
   //Return time
   return temp;
 }
-
 static int getMoonPhase(long dateVar) {
   //Returns the moon's phase nummber, from 0-7 starting from new moon
-  APP_LOG(APP_LOG_LEVEL_INFO, "Entered getMoonPhase");
+  //APP_LOG(APP_LOG_LEVEL_INFO, "Entered getMoonPhase");
   //Set some constants
   int localTimeVar = 600;
   double modDivisor = 29.530588853;       //Lunar month length
@@ -272,8 +279,8 @@ static int getMoonPhase(long dateVar) {
   
   return phaseNum;  
 }
-
 static void update_Astronomy() {
+	//APP_LOG(APP_LOG_LEVEL_INFO, "Entered update_Astronomy");
   //This is the main function that runs all the times and phase functions - updates the information on the watch
   //First we get the current date into a format that works with the code long(YYYYMMDD)----------------------------------------------
   // Get a tm structure for localtime and UTC0 time
@@ -285,19 +292,7 @@ static void update_Astronomy() {
   long lastDateCode = persist_read_int(LDATE_STORED);
   int daysWithoutUpdate = calc_d_JDate(cCodeDate) - calc_d_JDate(lastDateCode);
   
-  if (daysWithoutUpdate != 0 || lastDateCode == 0) {
-    //See if we can get updated GPS coords if it's been longer than a day without update. This will run in the initlisation as well, only if more than one day without updating!
-		//v1.1 - Had to make sure that if no data is in the LDATE_STORED then force an update (for when the app is first installed...)
-    update_GPS();
-    //Since this may have changed, check the last update date
-    lastDateCode = persist_read_int(LDATE_STORED);
-    daysWithoutUpdate = calc_d_JDate(cCodeDate) - calc_d_JDate(lastDateCode);
-  }
-  
-  //Manually adjust cCodeDate for testing
-  //cCodeDate = 20160213;
-  
-  //Second we calculate moon rise time--------------------------------------------------------------------------------
+  //Second we calculate moon rise time----------------------------------------------------------------------------------------------
   // Moon rise times are already calculated from the phone javascript
   int riseInt = 4000;
   switch(daysWithoutUpdate) {
@@ -433,7 +428,6 @@ static void update_Astronomy() {
   int yearVar = lastDateCode / 10000;
   int monthVar = (lastDateCode % 10000) / 100;
   int dayVar = lastDateCode % 100;
-	
 	if (lastDateCode != 0){
 		//Update the location data
   	snprintf(lastUpdateBuffer, sizeof(lastUpdateBuffer), "%d-%d-%d %d:%d%d UTC%d", dayVar, monthVar, yearVar, returnHour(lastUpdateTime), returnMinTens(lastUpdateTime), returnMinOnes(lastUpdateTime), (int)UToffset);
@@ -449,42 +443,40 @@ static void update_Astronomy() {
   text_layer_set_text(s_UTC_layer, lastUpdateBuffer);
   text_layer_set_text(s_Coords_layer, GPScoordsBuffer);
 }
-
 // END OF ASTRONOMY CALCULATIONS...-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-
-
+static void moonModule_deinit() {
+	//APP_LOG(APP_LOG_LEVEL_INFO, "Entered moon module deinit");
+  app_message_deregister_callbacks();    //Destroy the callbacks for clean up
+}
 static void inbox_received_callback(DictionaryIterator *iterator, void *context) {
+	//APP_LOG(APP_LOG_LEVEL_INFO, "Got data back from Phone");
   // This is the main function that operates when a callback happens for the GPS request
   // Store incoming information
-  static int newLatitude;
-  static int newLongitude;
-  static int newAltitude;
-  static int newAltitudeAcc;
-  static int useOldData;
-  static int newUToffset;
-  static int newRise0, newRise1, newRise2, newRise3, newRise4, newRise5, newRise6;
-  
+  int newLatitude;
+  int newLongitude;
+  int useNewData = 0;		//Assume using old data until proven otherwise
+  int newUToffset;
+  int newRise0, newRise1, newRise2, newRise3, newRise4, newRise5, newRise6;
+	
   // Read first item
-  Tuple *t = dict_read_first(iterator);
+  Tuple *t;
+	t = dict_read_first(iterator);
 
   // For all items
   while(t != NULL) {
     // Which key was received?
     switch(t->key) {
+			case 0:
+				// Key 0 is the first entry in the dictionary, skipped for values as I believe that was the source of problems..
+				break;
       case KEY_LATITUDE:
-        newLatitude = (int)t->value->int32;
+        newLatitude = t->value->int32;
         break;
       case KEY_LONGITUDE:
         newLongitude = (int)t->value->int32;
         break;
-      case KEY_ALTITUDE:
-        newAltitude = (int)t->value->int32;
-        break;
-      case KEY_ALTACC:
-        newAltitudeAcc = (int)t->value->int32;
-        break;
       case KEY_USEOLDDATA:
-        useOldData = (int)t->value->int32;
+        useNewData = (int)t->value->int32;
         break;
       case KEY_UTCh:
         newUToffset = (int)t->value->int32;
@@ -512,20 +504,33 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
         break;
       default:
         APP_LOG(APP_LOG_LEVEL_ERROR, "Key %d not recognized!", (int)t->key);
-        break;
     }
 
     // Look for next item
     t = dict_read_next(iterator);
-  }
-
+  }		//Transer the incoming information into the stores
+	
   // Set the latitude and longitude global variables
-  if (useOldData == 1) {
+  if (useNewData == 0) {
     // No new position data available, use old data
     // Latitude and longitude remain unchanged (along with time zone I believe)
+		//APP_LOG(APP_LOG_LEVEL_INFO, "Data invalid from Phone");
+		/*
+		if (GPScalls < 3) {
+			//Flag for a re-ping, dictionary memory will be destroyed, but callbacks are still registered
+			repingGPS = 1;
+		} else {
+			//Run an update on the, as data has been correctly received and processed
+			repingGPS = 0;
+			moonModule_deinit();		//Call to deregister the callbacks (no longer needed)
+			update_Astronomy();			//Refresh calculations
+		}
+		*/
+		
   } else {
     // New position data available, update global variables. Lat, long, and UTC must remain as flexible variables, Rise values can be directly accessed through storage
     // Last update time can be updated to now as well
+		//APP_LOG(APP_LOG_LEVEL_INFO, "Data valid from Phone");
     time_t localSeconds = time(NULL);
     struct tm *tick_time = localtime(&localSeconds);
     lastUpdateTime = (tick_time->tm_hour) * 100 + (tick_time->tm_min);
@@ -533,8 +538,6 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
     
     latitude = (float)newLatitude/100;
     longitude = (float)newLongitude/100;
-    altitude = newAltitude;
-    altitudeAcc = newAltitudeAcc;
     UToffset = newUToffset;    //Already in hrs
     persist_write_int(LAT_STORED, newLatitude);    //Already as an integer (must / 100 when retrieving)
     persist_write_int(LNG_STORED, newLongitude);
@@ -548,53 +551,52 @@ static void inbox_received_callback(DictionaryIterator *iterator, void *context)
     persist_write_int(RISE6_STORED, newRise6);
     persist_write_int(LAST_STORED, lastUpdateTime);
     persist_write_int(LDATE_STORED, cCodeDate);
+		
+		
   }
-  
+	//Run an update on the, as data has been correctly received and processed
+	update_Astronomy();			//Refresh calculations
 }
-
 static void inbox_dropped_callback(AppMessageResult reason, void *context) {
-  APP_LOG(APP_LOG_LEVEL_ERROR, "Message dropped!");
+  //APP_LOG(APP_LOG_LEVEL_ERROR, "Message dropped!");
+	update_Astronomy();		//Redisplay values
 }
-
 static void outbox_failed_callback(DictionaryIterator *iterator, AppMessageResult reason, void *context) {
-  APP_LOG(APP_LOG_LEVEL_ERROR, "Outbox send failed!");
+  //APP_LOG(APP_LOG_LEVEL_ERROR, "Outbox send failed!");
+	update_Astronomy();		//Redisplay values
 }
-
 static void outbox_sent_callback(DictionaryIterator *iterator, void *context) {
-  APP_LOG(APP_LOG_LEVEL_INFO, "Outbox send success!");
+  //APP_LOG(APP_LOG_LEVEL_INFO, "Outbox send success!");
 }
-
-
-
 
 static void moonModule_init() {
-  //Set dbug mode
-  localDebugDisp = 2;
-  //dispVal(localDebugDisp, "Debug mode:");
+	//APP_LOG(APP_LOG_LEVEL_INFO, "Entered moon module init");
+	// Register the callbacks
+	app_message_register_inbox_received(inbox_received_callback);
+  app_message_register_inbox_dropped(inbox_dropped_callback);
+  app_message_register_outbox_failed(outbox_failed_callback);
+  app_message_register_outbox_sent(outbox_sent_callback);
+	// Open AppMessage
+  app_message_open(APP_MESSAGE_INBOX_SIZE_MINIMUM, APP_MESSAGE_OUTBOX_SIZE_MINIMUM);		//Hopefully the guaranteed size is large enough to carry the data across bluetooth
   
   latitude = (float)persist_read_int(LAT_STORED) / 100;
   longitude = (float)persist_read_int(LNG_STORED) / 100;
   UToffset = persist_read_int(UTC_STORED);
   lastUpdateTime = persist_read_int(LAST_STORED);
-  
-  // Register the callbacks
-  app_message_register_inbox_received(inbox_received_callback);
-  app_message_register_inbox_dropped(inbox_dropped_callback);
-  app_message_register_outbox_failed(outbox_failed_callback);
-  app_message_register_outbox_sent(outbox_sent_callback);
-  
-  // Open AppMessage
-  app_message_open(app_message_inbox_size_maximum(), app_message_outbox_size_maximum());
-  
-  
-  // Update the GPS data
-  //update_GPS();
-  
-  //Update the astronomy data
-  update_Astronomy();
-  
+	
+	update_Astronomy();
 }
-
-static void moonModule_deinit() {
-  app_message_deregister_callbacks();    //Destroy the callbacks for clean up
+static void update_GPS(int nCalls) {
+	//APP_LOG(APP_LOG_LEVEL_INFO, "Entered update_GPS()");
+	text_layer_set_text(s_UTC_layer, "Awaiting GPS data");		//Display update message
+	
+	// First increment the number of calls by setting GPScalls to the seed value passed through
+	GPScalls = nCalls + 1;
+  // Begin dictionary
+  DictionaryIterator *iter;
+  app_message_outbox_begin(&iter);
+  // Add a key-value pair
+  dict_write_uint8(iter, 0, 0);
+  // Send the message!
+  app_message_outbox_send();
 }
