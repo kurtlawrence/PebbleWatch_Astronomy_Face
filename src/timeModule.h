@@ -2,7 +2,7 @@
 #include <moonModule.h>        // Moon module requires time module functions
 // This module adds functionality to display the time and date (one call to TickTimerService)
 static void update_time() {
-	//APP_LOG(APP_LOG_LEVEL_INFO, "Entered update_time()");
+	//APP_LOG(APP_LOG_LEVEL_INFO, "Entered update_time(). Memory: %d", heap_bytes_used());
   // Get a tm structure
   time_t temp = time(NULL);
   struct tm *tick_time = localtime(&temp);
@@ -47,7 +47,7 @@ static void time_tick_handler(struct tm *tick_time, TimeUnits units_changed) {
   int hourNum = tick_time->tm_hour;
 	int minNum = tick_time->tm_min;
   hourNum = hourNum + 7;    //Adj hour so the mod works nicely
-  
+	  
 	if (hourNum % 12 == 0 && minNum == 0) {
     // Update every four hours, starting at midnight - adjustment + 4
     update_GPS(0);			//Passed seed value of zero, initilised calling

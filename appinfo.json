@@ -21,6 +21,31 @@
     "resources": {
         "media": [
             {
+                "file": "images/trueNorthIcon.png",
+                "name": "CompassTrueIcon",
+                "type": "png"
+            },
+            {
+                "file": "images/magNorthIcon.png",
+                "name": "CompassMagIcon",
+                "type": "png"
+            },
+            {
+                "file": "images/compassOffIcon.png",
+                "name": "CompassOffIcon",
+                "type": "png"
+            },
+            {
+                "file": "images/Bluetooth_off.png",
+                "name": "BT_ICON_OFF",
+                "type": "png"
+            },
+            {
+                "file": "images/Bluetooth_on.png",
+                "name": "BT_ICON_ON",
+                "type": "png"
+            },
+            {
                 "file": "images/NewMoonSH_icon.png",
                 "name": "NewMoonSH_icon",
                 "type": "png"
@@ -85,7 +110,7 @@
         "basalt"
     ],
     "uuid": "6d4b7965-4085-41a7-9b11-fff84e389997",
-    "versionLabel": "2.0",
+    "versionLabel": "2.1",
     "watchapp": {
         "watchface": true
     }

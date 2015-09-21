@@ -357,6 +357,7 @@ static void update_Astronomy() {
   } else {
     snprintf(moonRiseBuffer, sizeof(moonRiseBuffer), "%d:%d%d rise", returnHour(riseInt), returnMinTens(riseInt), returnMinOnes(riseInt));
   }
+	gbitmap_destroy(s_moonIcon_bitmap);			// First destroy the bitmap that will house the moon icon, this prevents a leaking memory
   switch (moonPhaseNum) {
     case 0:
       snprintf(moonPhaseBuffer, sizeof(moonRiseBuffer), "New moon");

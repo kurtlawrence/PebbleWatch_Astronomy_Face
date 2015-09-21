@@ -1,5 +1,5 @@
 // This module adds functionality to display the compass heading
-static void update_compass(int bearing) {  
+static void update_compass(int bearing, bool isTrueNorth) {  
   // Create a long-lived buffer with date format listed
   static char buffer[] = "000";    // Compass bearing
   
@@ -33,6 +33,12 @@ static void update_compass(int bearing) {
   
   // Display this date on the TextLayer
   text_layer_set_text(s_compassBearing_layer, buffer);
+	
+	if (isTrueNorth) {
+		bitmap_layer_set_bitmap(s_compassType_layer, s_compassTrue_bitmap);		// Set to display true north
+	} else {
+		bitmap_layer_set_bitmap(s_compassType_layer, s_compassMag_bitmap);		// Set to display magnetic north
+	}
 }
 static void show_calibration_screen() {
   // Create long-lived buffer
@@ -44,7 +50,7 @@ static void show_calibration_screen() {
 }
 void compass_callback(CompassHeadingData heading) {
   if (heading.compass_status != CompassStatusDataInvalid) {
-    update_compass(360 - TRIGANGLE_TO_DEG((int)heading.true_heading));
+    update_compass(360 - TRIGANGLE_TO_DEG((int)heading.true_heading), heading.is_declination_valid);
   } else {
     // Heading not available yet - Show calibration UI to user
     show_calibration_screen();
@@ -63,4 +69,5 @@ static void compassModule_deinit() {
 	compassIsDisplayed = 0;
   compass_service_unsubscribe();
 	show_calibration_screen();
+	bitmap_layer_set_bitmap(s_compassType_layer, s_compassNone_bitmap);		// Set to display no true or magnetic detail
 }
