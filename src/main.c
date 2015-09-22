@@ -1,6 +1,6 @@
 #include <pebble.h>
 enum {
-	APP_VERSION = 5
+	APP_VERSION = 6
 };		//Define the version number
 enum {
   LAT_STORED = 0,
@@ -98,7 +98,7 @@ static void version_window_load(Window *window) {
 	
 	layer_add_child(window_get_root_layer(window), text_layer_get_layer(s_version_layer));
 	
-	text_layer_set_text(s_version_layer, "Welcome to v2.1\nBuild 5\nRefer to changelog for updates\nShake 3 times within a minute to active settings screen\nPlease be patient with gesture recognition");
+	text_layer_set_text(s_version_layer, "Welcome to v2.2\nBuild 6\nRefer to changelog for updates\nShake 3 times within a minute to active settings screen\nPlease be patient with gesture recognition");
 }
 static void version_window_unload(Window *window) {
 	text_layer_destroy(s_version_layer);		//Destroy text layer -->Create23
@@ -232,7 +232,12 @@ static void init() {
 	s_btIcon_layer = bitmap_layer_create(GRect(125, 69, 12, 11));
 	s_btIconOn_bitmap = gbitmap_create_with_resource(RESOURCE_ID_BT_ICON_ON);
 	s_btIconOff_bitmap = gbitmap_create_with_resource(RESOURCE_ID_BT_ICON_OFF);
-	bitmap_layer_set_bitmap(s_btIcon_layer, s_btIconOn_bitmap);
+	if (bluetooth_connection_service_peek()) {		// Peek the current bluetooth status and set the icon to what it is!
+		bitmap_layer_set_bitmap(s_btIcon_layer, s_btIconOn_bitmap);
+	} else {
+		bitmap_layer_set_bitmap(s_btIcon_layer, s_btIconOff_bitmap);
+	}
+	
 	//Create the compass type layer layer --> Create25
 	s_compassType_layer = bitmap_layer_create(GRect(0, 119, 3, 20));
 	s_compassNone_bitmap = gbitmap_create_with_resource(RESOURCE_ID_CompassOffIcon);
